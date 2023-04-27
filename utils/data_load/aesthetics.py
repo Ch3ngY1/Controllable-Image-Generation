@@ -21,57 +21,16 @@ class MyDataset(data_utils.Dataset):
         self.items = []
         self.transform = transform
 
-        root = '/data2/chengyi/dataset/ord_reg/aesthetics/stratified/'
+        root = 'data_split/aesthetics/stratified/'
 
-        '''
-        制作分层采样数据集：
-        '''
-        # subcls = [[[],[],[],[],[]] for _ in range(4)]
-        # self.items = []
-        # with open(root + 'all.csv', 'r') as f:
-        #     reader = csv.reader(f)
-        #     next(reader)
-        #     for row in reader:
-        #         _, id, sub, imgpath, _, label = row
-        #         sub = mapping[sub]
-        #         item = [id, sub, imgpath, label]
-        #         subcls[sub][int(label)].append(item)
-        #         # self.items.append(row[1:])
-        #
-        # train = []
-        # valid = []
-        # for sub_i in range(4):
-        #     for label_j in range(5):
-        #         current = subcls[sub_i][label_j]
-        #         random.shuffle(current)
-        #         interval = len(current) // 4
-        #         valid.extend(current[:interval])
-        #         train.extend(current[interval:])
-        #         pass
-        #
-        #
-        # column = ['id', 'sub_cls', 'img', 'label']
-        # test = pd.DataFrame(columns=column, data=valid)
-        # test.to_csv(root + 'valid.csv', encoding='gbk')
-        #
-        # test = pd.DataFrame(columns=column, data=train)
-        # test.to_csv(root + 'train.csv', encoding='gbk')
-
-        '''
-        加载数据集
-        '''
-        # dataset = 'validation' if dataset == 'valid' else dataset
         f = open(root + dataset + '_{}.csv'.format(fold), "r")
         reader = csv.reader(f)
         next(reader)
         for row in reader:
             self.items.append(row[1:])
 
-
-        # print(subcls)
         print(len(self.items))
         self.label_list = [int(x[-1]) for x in self.items]
-        # {'urban': 0, 'people': 1, 'nature': 2, 'animals': 3}: [818, 713, 1053, 836]
 
     def choose_ref(self, label):
         if label == 0:
@@ -79,7 +38,9 @@ class MyDataset(data_utils.Dataset):
         elif label == 4:
             out = 3
         else:
-            out = label + 1 if random.random() > 0.5 else label - 1
+            left_num = self.label_num[label-1]
+            right_num = self.label_num[label+1]
+            out = label + 1 if random.random() < (left_num/(left_num+right_num)) else label - 1
         return out
 
 
@@ -109,11 +70,7 @@ class MyDataset(data_utils.Dataset):
             img_ref = self.transform(img_ref)
             img = self.transform(img)
 
-        return img, img_ref, label, ref_label, 0., 0.
+        return img, img_ref, label, ref_label
 
     def __len__(self):
         return len(self.items)
-
-
-if __name__ == '__main__':
-    a = MyDataset(None, None, 'valid')

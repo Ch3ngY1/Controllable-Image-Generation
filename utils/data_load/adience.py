@@ -16,12 +16,8 @@ class MyDataset(data_utils.Dataset):
     def __init__(self, img_root, data_root, dataset, transform=None, fold=4):
         self.data_list = []
         self.transform = transform
-        '''
-        同时倒入frontal和普通的，
-        frontal就是对应的aligned
-        普通的对应的是faces
-        '''
-        root = '/data2/chengyi/dataset/ord_reg/AdienceBenchmarkGenderAndAgeClassification/AgeGenderDeepLearning/Folds/train_val_txt_files_per_fold'
+
+        root = '/<your path>/AdienceBenchmarkGenderAndAgeClassification/AgeGenderDeepLearning/Folds/train_val_txt_files_per_fold'
 
         train = 'age_train.txt'
         test = 'age_test.txt'
@@ -77,51 +73,17 @@ class MyDataset(data_utils.Dataset):
                 pass
 
         img_path_ref = copy.deepcopy(self.data_list[idx2])[:-3]
-        img_path_ref = '/data2/wangjinhong/data/ord_reg/data/aligned/' + img_path_ref
+        img_path_ref = '/<your path>/aligned/' + img_path_ref
         img_ref = Image.open(img_path_ref).convert('RGB')
         # label = item[-1]
-        img_path = '/data2/wangjinhong/data/ord_reg/data/aligned/' + img_path
+        img_path = '/<your path>/aligned/' + img_path
         img = Image.open(img_path).convert('RGB')
         if self.transform:
             img = self.transform(img)
             img_ref = self.transform(img_ref)
 
-        # multi_hot_target = torch.zeros(1).long()
-        # multi_hot_target[list(range(label))] = 1
-        # # # 这是为了rank的模式：111111000000这种
-        # multi_hot_target_ref = torch.zeros(1).long()
-        # multi_hot_target_ref[list(range(label))] = 1
-        multi_hot_target = multi_hot_target_ref = 0.
-        # label = torch.tensor(float(label), dtype=torch.float32)
 
-        return img, img_ref, label, ref_label, multi_hot_target, multi_hot_target_ref
+        return img, img_ref, label, ref_label
 
     def __len__(self):
         return len(self.data_list)
-
-
-if __name__ == '__main__':
-    # train_dataloader = MyDataset(img_root=None, data_root='/data2/wangjinhong/data/ord_reg/data/', dataset='valid',
-    #                              transform=None, fold=0)
-    # train_dataloader = torch.utils.data.DataLoader(train_dataloader, batch_size=4, shuffle=True, num_workers=4)
-    # train_iter = iter(train_dataloader)
-    # a, b, c, d = train_iter.next()
-    root = '/data2/chengyi/dataset/ord_reg/AdienceBenchmarkGenderAndAgeClassification/AgeGenderDeepLearning/Folds/train_val_txt_files_per_fold'
-
-    data_list = []
-    for fold in range(5):
-        for each in ['age_test.txt', 'age_train_subset.txt',  'age_train.txt',  'age_val.txt']:
-            f_path = root + '/test_fold_is_' + str(fold) + '/' + each
-            # print(f_path)
-            with open(f_path, 'r') as f:
-                l = f.readlines()
-                data_list.extend(l)
-    sub = [[] for _ in range(8)]
-    for each in data_list:
-        # print(each)
-        # break
-        label = int(each[-2])
-        sub[label].append(each)
-
-    for i in range(8):
-        print(len(set(sub[i])))

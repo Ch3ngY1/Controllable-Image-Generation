@@ -1,17 +1,8 @@
-from .En_De_Net_transformer import Model as endet
-from .En_De_Net_VGG import Model as endevgg
-from .En_De_Net_VGG_mix import Model as endemix
-from .En_De_Net_transformer_mix import Model as endetmix
+from .CIG_VGG import Model as cigvgg
+from .CIG_PVT import Model as cigpvt
 
 import functools
 
-
-'''
-ResTrans：纯粹的二进制
-ResTrans2：用于计算loss的Label是概率分布，gt_mode决定了不同的tgt模式
-MultiScale：单个ResNet不同层输出，与概率分布的soft label计算loss
-Shift：通过偏移得到最后的输出
-'''
 from torch.nn.parallel.data_parallel import DataParallel
 __all__ = [
     'CallbackContext',

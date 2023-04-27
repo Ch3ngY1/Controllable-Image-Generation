@@ -124,6 +124,20 @@ class EnDe(nn.Module):
         )
         self.dhead = nn.Linear(512, args.num_classes)
         self.uhead = nn.Linear(512, 768)
+        self.ushape = nn.Linear(512, 512)
+        self.ufeature = nn.Linear(512, 512)
+
+        # tau = args.tau
+
+        self.ushape = nn.Linear(512, round(512 * args.tau))
+        self.ufeature = nn.Linear(512, round(512 * (1 - args.tau)))
+
+    def loss(self, x, x_shape):
+        x_feature = self.ufeature(x)
+        res = torch.cat([x_shape, x_feature], dim=2)
+        loss1 = ((res - x) ** 2).mean()  # --> 0
+        return loss1
+
 
     def forward(self, x, y, cls=False):
         b, c, h, w = x.shape
@@ -134,16 +148,24 @@ class EnDe(nn.Module):
             out = self.dhead(x)
             return out
 
-        y = self.d(y)
-        x = torch.cat([x, y], dim=0)
-        x = x.repeat(2, 1, 1)
+        y = self.d(y)  # 49 * 2 * 512
+
+        # x = torch.cat([x, y], dim=0)
+        shape_x = self.ushape(x)
+        feature_y = self.ufeature(y)
+        # out4 = shape_x + feature_y
+        x = torch.cat([shape_x, feature_y], dim=2)
+
+        loss = self.loss(x, shape_x)
+
+        x = x.repeat(4, 1, 1)
         x = x.permute(1, 0, 2)
         x = self.u(x)
         x = self.uhead(x)
 
         x = x.view(b, h // 16, w // 16, 16, 16, 3).permute(0, 5, 1, 3, 2, 4).reshape(b, c, h, w)
 
-        return x
+        return x, loss
 
 
 class Model(nn.Module):
@@ -154,15 +176,12 @@ class Model(nn.Module):
         self.criterion = nn.CrossEntropyLoss(reduction='none')
         self.simi_loss = ssim.SSIM(size_average=False)
         self.name = 'UnetGenerator'
-        self.weight_pred = args.weights
+        self.alpha = args.alpha
+        self.beta = args.beta
+        self.lmbd = args.lmbd
+        self.tau = args.tau
 
     def lossGen(self, gen_x, x, y):
-        '''
-        SSIM越到表示两个图越相似
-        目的是让gen_x和x相似但是gen_x和y不相似，因此计算loss simi和loss diff
-        由于图像差异性问题，因此做归一化(softmax)
-        在图像完全一致时，ssim=1，因此通过1-0来表示tgt，但是在这里0也是有意义的，因此使用BCELoss
-        '''
         loss_simi = self.simi_loss(gen_x, x)
         loss_diff = self.simi_loss(gen_x, y)
         loss_cat = torch.cat([loss_simi.unsqueeze(1), loss_diff.unsqueeze(1)], dim=1)
@@ -178,28 +197,20 @@ class Model(nn.Module):
         x_cls = self.net(x, x, cls=True)
         loss_x_input = self.criterion(x_cls, target_x)
         if self.training and GAN:
-            x_gen = self.net(x, y)
+            x_gen, loss_orth = self.net(x, y)
             lossGen1 = self.lossGen(x_gen, x, y)
 
             x_gen_cls = self.net(x_gen, x_gen, cls=True)
 
             y_cls = self.net(y, y, cls=True)
 
-            # simi, diff = ((x_gen_cls - x_cls) ** 2).mean(dim=1), ((x_gen_cls - y_cls) ** 2).mean(dim=1)
-            # simi, diff = F.softmax(torch.stack([simi, diff]), dim=0)
-            # loss2x = self.criterion(x_gen_cls, target_x) * simi
-            # loss2y = self.criterion(x_gen_cls, target_y) * diff
-            # # loss2x = self.criterion((x_gen_cls.squeeze() * simi).unsqueeze(1), target_x)
-            # # loss2y = self.criterion((x_gen_cls.squeeze() * diff).unsqueeze(1), target_y)
-            #
-            # loss_xgen_input = loss2x.mean() + loss2y.mean()
-
             loss_xgen_input = self.criterion(x_gen_cls, target_y).mean()
 
-            loss_pred = loss_x_input.mean() + loss_xgen_input * self.weight_pred[-1]
+            loss_pred = loss_x_input.mean() + loss_xgen_input * self.lmbd
             lossGen2 = l2_loss(x_gen_cls, y_cls)
 
-            loss_gen = lossGen1 * self.weight_pred[0] + lossGen2 / ((x_gen_cls ** 2).mean() + (y_cls ** 2).mean()) * self.weight_pred[1]
+            loss_gen = lossGen1 * self.alpha + lossGen2 / ((x_gen_cls ** 2).mean() + (y_cls ** 2).mean()) * \
+                       self.beta + loss_orth
 
             return x_cls, [loss_pred, loss_gen]
 
@@ -209,19 +220,18 @@ class Model(nn.Module):
 class Args():
     def __init__(self):
         self.no_GAN = True
-        self.weight = 1.
+        self.weights = [2, 5, 0.1]
         self.num_classes = 5
 
 
 if __name__ == '__main__':
+    import os
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = '6'
     args = Args()
     data = torch.rand([2, 3, 224, 224]).cuda()
     label = torch.tensor([1, 2]).cuda()
     net = Model(args).cuda()
     pred = net(data, data, label, label)
     pred = net(data, data, label, label, GAN=True)
-    print(pred.shape)
-
-'''
-通过两个优化器来优化模型
-'''
+    # print(pred.shape)

@@ -31,7 +31,7 @@ class BaseConfig(object):
         self.parser.add_argument('--warmup_steps', default=1000, type=int, help='Number of warmup iterations')
         self.parser.add_argument('--num_classes', default=8, type=int)
 
-        self.parser.add_argument('--lr', '--learning-rate', default=0.01, type=float, help='initial learning rate')
+        self.parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float, help='initial learning rate')
         self.parser.add_argument('--lr_adjust', default='fix', choices=['fix', 'poly'], type=str, help='Learning Rate Adjust Strategy')
         self.parser.add_argument('--stepvalues', default=[1000, 2000, 3000], nargs='*', type=int, help='# of iter to change lr')
         self.parser.add_argument('--weights', default=[1, 1], nargs='*', type=float)
@@ -39,7 +39,7 @@ class BaseConfig(object):
         self.parser.add_argument('--weight_decay', '--wd', default=5e-4, type=float, help='Weight decay for SGD')
         self.parser.add_argument('--gamma', default=0.1, type=float, help='Gamma update for SGD lr')
         self.parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
-        self.parser.add_argument('--batch_size', default=32, type=int, help='Batch size for training')
+        self.parser.add_argument('--batch_size', default=18, type=int, help='Batch size for training')
         self.parser.add_argument('--optim', default='SGD', type=str, choices=['SGD', 'Adam'], help='Optimizer')
         self.parser.add_argument('--save_freq', default=400, type=int, help='save weights every # iterations')
         self.parser.add_argument('--display_freq', default=20, type=int,help='display training metrics every # iterations,  =train_epoch_size/2, train_epoch_size = train_total_num/batch_size')  # 20 for one step data show
@@ -48,7 +48,11 @@ class BaseConfig(object):
 
         #model cfg
         self.parser.add_argument('--model_name', default='Resnet', type=str, help='module')
-        self.parser.add_argument('--ratio', default=0.5, type=float)
+        # hyper parameters
+        self.parser.add_argument('--alpha', default=5, type=float)
+        self.parser.add_argument('--beta', default=2, type=float)
+        self.parser.add_argument('--lmbd', default=0.2, type=float)
+        self.parser.add_argument('--tau', default=0.2, type=float)
         # self.parser.add_argument('--weight', default=1., type=float)
 
 
@@ -65,8 +69,8 @@ class BaseConfig(object):
         self.args = self.parse(fixed)
         print(self.args.local_rank)
         if self.args.debug:
-            self.args.save_log = '/data2/chengyi/ord_reg/result/DEBUG_logs/'
-            self.args.save_folder = '/data2/chengyi/ord_reg/result/DEBUG_models/'
+            self.args.save_log = '/<your path>/result/DEBUG_logs/'
+            self.args.save_folder = '/<your path>/result/DEBUG_models/'
             self.args.batch_size = 8
         if show:
             print('--------------Options Log-------------')

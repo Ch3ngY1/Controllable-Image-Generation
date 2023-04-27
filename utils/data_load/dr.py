@@ -25,13 +25,21 @@ class MyDataset(data_utils.Dataset):
             data_num = [fold]
 
         for i in data_num:
-            f = open('/data2/chengyi/dataset/ord_reg/DR_dataset/ten_fold/fold_{}.csv'.format(i), "r")
+            f = open('data_split/dr/fold_{}.csv'.format(i), "r")
             reader = csv.reader(f)
             next(reader)
             for row in reader:
                 self.data_list.append(row[1:])
 
         self.label_list = [int(x[-1]) for x in self.data_list]
+
+
+        self.label_num = [0, 0, 0, 0, 0]
+        for each in self.label_list:
+            self.label_num[each] += 1
+        print(self.label_num)
+
+
         print(len(self.data_list))
 
     def choose_ref(self, label):
@@ -40,14 +48,16 @@ class MyDataset(data_utils.Dataset):
         elif label == 4:
             out = 3
         else:
-            out = label + 1 if random.random() > 0.5 else label - 1
+            left_num = self.label_num[label-1]
+            right_num = self.label_num[label+1]
+            out = label + 1 if random.random() < (left_num/(left_num+right_num)) else label - 1
         return out
 
     def __getitem__(self, idx):
         item = copy.deepcopy(self.data_list[idx])
 
         label = int(item[1])
-        img_path = '/data2/chengyi/dataset/ord_reg/DR_dataset/train/' + item[0] + '.jpg'
+        img_path = '/<your path>/DR_dataset/train/' + item[0] + '.jpg'
 
         ref_label = int(self.choose_ref(label))
         while True:
@@ -59,7 +69,7 @@ class MyDataset(data_utils.Dataset):
             except:
                 pass
 
-        img_path_ref = '/data2/chengyi/dataset/ord_reg/DR_dataset/train/' + copy.deepcopy(self.data_list[idx2])[
+        img_path_ref = '/<your path>/DR_dataset/train/' + copy.deepcopy(self.data_list[idx2])[
             0] + '.jpg'
         img_ref = Image.open(img_path_ref).convert('RGB')
         img = Image.open(img_path).convert('RGB')
@@ -67,13 +77,8 @@ class MyDataset(data_utils.Dataset):
             img = self.transform(img)
             img_ref = self.transform(img_ref)
 
-        multi_hot_target = multi_hot_target_ref = 0.
 
-        return img, img_ref, label, ref_label, multi_hot_target, multi_hot_target_ref
+        return img, img_ref, label, ref_label
 
     def __len__(self):
         return len(self.data_list)
-
-
-if __name__ == '__main__':
-    MyDataset(None, None, 'train')

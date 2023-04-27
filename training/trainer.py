@@ -34,18 +34,8 @@ class DefaultTrainer(object):
         self.eval_only = args.eval_only
         self.main_loss_type = args.main_loss_type
 
-        self.poe = args.poe
-        self.gan = args.no_GAN
         self.model = getattr(models, args.model_name.lower())(args)
 
-        # root = '/data2/chengyi/Ordinal_GAN/result/save_model/checkpoint_ENDE/Faces/REMAKE/'
-        # for each in os.listdir(root +'fold_{}'.format(args.fold)):
-        #     if 'acc' in each:
-        #         state_dict = root +'fold_{}/'.format(args.fold) + each
-        #         break
-
-        # state_dict = torch.load(state_dict)['net_state_dict']
-        # self.model.load_state_dict(state_dict)
 
         self.model.cuda()
         self.max_acc = 0
@@ -56,9 +46,6 @@ class DefaultTrainer(object):
         self.start = 0
         self.wrong = None
         self.log_path = os.path.join(self.args.save_folder, self.args.exp_name, 'result.txt')
-
-        # 这个只是用于vgg2的
-        print('LR = 0.0001')
 
         params_pre = []
         params_gen = []
@@ -73,20 +60,15 @@ class DefaultTrainer(object):
 
         self.optim_pred = torch.optim.Adam(params_pre, lr=self.lr,
                                            betas=(0.9, 0.999), eps=1e-08)
-        # self.optim_pred = torch.optim.SGD(params_pre, lr=self.lr * 10)
-        # self.optim_gen = torch.optim.SGD(params_gen, lr=self.lr * 500)
-        #
         self.optim_gen = torch.optim.Adam(params_gen, lr=self.lr * 50,
                                           betas=(0.9, 0.999), eps=1e-08)
 
     def train_iter(self, step, dataloader):
 
-        img, img2, label, label2, mh, mh2 = dataloader.next()
+        img, img2, label, label2 = dataloader.next()
         img, img2 = img.float().cuda(), img2.float().cuda()
         label, label2 = label.cuda(), label2.cuda()
 
-        if self.main_loss_type != 'rank':
-            mh = mh2 = None
         self.model.train()
         if self.eval_only:
             self.model.eval()
@@ -105,17 +87,7 @@ class DefaultTrainer(object):
             loss.backward()
             self.optim_pred.step()
             loss_print = loss
-        # elif step < 0:
-        #     # only gan
-        #     logit, loss = self.model(img, img2, label, label2, GAN=True)
-        #     print('Only Generator Training - Step: {} - Loss: {:.4f}' \
-        #           .format(step, loss[0].item()))
-        #     # loss_pred, loss_gen
-        #     # loss[0].backward(retain_graph=True)
-        #     loss[1].backward()
-        #     # self.optim_pred.step()
-        #     self.optim_gen.step()
-        #     loss_print = loss[1]
+
         else:
             # both
             logit, loss = self.model(img, img2, label, label2, GAN=True)
@@ -201,11 +173,9 @@ class DefaultTrainer(object):
         with torch.no_grad():
             for i in range(val_epoch_size):
 
-                img, img2, target, target2, mh, mh2 = next(val_iter)
+                img, img2, target, target2 = next(val_iter)
                 img, img2 = img.float().cuda(), img2.float().cuda()
                 target, target2 = target.cuda(), target2.cuda()
-                if self.main_loss_type != 'rank':
-                    mh = mh2 = None
 
                 logit, loss_tmp = self.model(img, img2, target, target2)
 
@@ -229,16 +199,6 @@ class DefaultTrainer(object):
             mae = metric.MAE(total_logit, total_target)
             mae2 = metric.Arg_MAE(total_logit, total_target)
 
-        '''
-        记录做错的img
-        '''
-        # self.wrong_perspective_target = total_target.cpu().numpy()
-        # _, pred = total_score.max(1)
-        # wrong = (pred != total_target).float()
-        # if self.wrong:
-        #     self.wrong += wrong
-        # else:
-        #     self.wrong = wrong
 
         print(
             'Valid - Step: {} \n Loss: {:.4f} \n Acc: {:.4f} \n MAE: {:.4f} \n MAE2: {:.4f}' \

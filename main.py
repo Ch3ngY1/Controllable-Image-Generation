@@ -13,7 +13,6 @@ def main(args):
     torch.manual_seed(runseed)
     np.random.seed(runseed)
 
-
     dataset = getattr(data_load, args.data_name.lower())
 
     train_data = dataset(
@@ -60,46 +59,34 @@ def main(args):
 
 if __name__ == '__main__':
     cfg = BaseConfig()
-    lr = 0.0001
     gpu_id = 0
     dataset = 'aesthetics'
 
     # ============================= Adience =============================
     if dataset == 'adience':
-        weights = '5 5 0.2'
-        for max_iter in [16000]:
-            steps = max_iter // 4 * 3
-            for fold in range(5):
-                ratio = 0.9
-                model_name = 'endetmix'
-                show = True
-                ckpt_name = 'Adience/{model_name}/'.format(model_name=model_name)
-                fixed = '--gpu_id {gpu_id} ' \
-                        '--model_name endevgg ' \
-                        '--ratio {ratio} ' \
-                        '--data_name faces_final_v3_ratio ' \
-                        '--batch_size 18 ' \
-                        '--lr {lr} ' \
-                        '--num_classes 8 ' \
-                        '--max_iter {max_iter} ' \
-                        '--stepvalues {steps} ' \
-                        '--warmup_steps 1000 ' \
-                        '--weights {weights} ' \
-                        '--exp_name fold_{fold} ' \
-                        '--val_freq 40 ' \
-                        '--fold {fold} ' \
-                        '--save_folder /data2/chengyi/Ordinal_GAN/result/save_model/checkpoint_{ckpt_name}/ ' \
-                        '--save_log /data2/chengyi/Ordinal_GAN/result/save_log/logs_{ckpt_name}/'.format(fold=fold,
-                                                                                                         steps=steps,
-                                                                                                         ckpt_name=ckpt_name,
-                                                                                                         lr=lr,
-                                                                                                         weights=weights,
-                                                                                                         max_iter=max_iter,
-                                                                                                         ratio=ratio,
-                                                                                                         gpu_id=gpu_id)\
-                .split()
-                args = cfg.initialize(fixed, show=show)
-                main(args)
+        for fold in range(5):
+            model_name = 'cigpvt'
+            ckpt_name = 'Adience/{model_name}/'.format(model_name=model_name)
+            fixed = '--gpu_id {gpu_id} ' \
+                    '--model_name endevgg ' \
+                    '--data_name faces ' \
+                    '--num_classes 8 ' \
+                    '--max_iter 16000 ' \
+                    '--stepvalues 12000 ' \
+                    '--exp_name fold_{fold} ' \
+                    '--fold {fold} ' \
+                    '--save_folder /<your path>/{ckpt_name}/ ' \
+                    '--save_log /<your path>/{ckpt_name}/'.format(steps=steps,
+                                                                ckpt_name=ckpt_name,
+                                                                fold=fold,
+                                                                sub_iter=sub_iter,
+                                                                max_iter=max_iter,
+                                                                exp_name=exp_name,
+                                                                model_name=model_name,
+                                                                data_name=data_name) \
+            .split()
+            args = cfg.initialize(fixed, show=show)
+            main(args)
 
 
     # ============================= dr_v3 =============================
@@ -107,29 +94,28 @@ if __name__ == '__main__':
         N = 12000
         steps = 3 * N
         max_iter = 4 * N
-        model_name = 'endetmix'
+        model_name = 'cigpvt'
         for fold in range(10):
             show = True if fold == 0 else False
             ckpt_name = 'DR/{model_name}/'.format(model_name=model_name)
             fixed = '--gpu_id 6 ' \
                     '--exp_name fold_{fold} ' \
                     '--model_name {model_name} ' \
-                    '--data_name dr_v3 ' \
-                    '--batch_size 18 ' \
-                    '--lr {lr} ' \
+                    '--data_name dr ' \
                     '--num_classes 5 ' \
                     '--max_iter {max_iter} ' \
                     '--stepvalues {steps} ' \
-                    '--warmup_steps 1000 ' \
-                    '--val_freq 40 ' \
                     '--fold {fold} ' \
-                    '--save_folder /data2/chengyi/Ordinal_GAN/result/save_model/checkpoint_{ckpt_name}/ ' \
-                    '--save_log /data2/chengyi/Ordinal_GAN/result/save_log/logs_{ckpt_name}/'.format(fold=fold,
-                                                                                                     steps=steps,
-                                                                                                     ckpt_name=ckpt_name,
-                                                                                                     lr=lr,
-                                                                                                     max_iter=max_iter,
-                                                                                                     model_name=model_name)\
+                    '--save_folder /<your path>/{ckpt_name}/ ' \
+                    '--save_log /<your path>/{ckpt_name}/'.format(steps=steps,
+                                                                ckpt_name=ckpt_name,
+                                                                fold=fold,
+                                                                weights=weights,
+                                                                sub_iter=sub_iter,
+                                                                max_iter=max_iter,
+                                                                exp_name=exp_name,
+                                                                model_name=model_name,
+                                                                data_name=data_name) \
             .split()
             args = cfg.initialize(fixed=fixed, show=show)
             main(args)
@@ -137,42 +123,33 @@ if __name__ == '__main__':
     # ============================= POE_DR_Further =============================
     if dataset == 'aesthetics':
         for fold in range(5):
-                weights = '5 2 0.2'
-                data_name = 'aesthetics_ratio'
-                model_name = 'endetmix'
-                steps = 2000
-                sub_iter = 1000
-                max_iter = 5000
-                ckpt_name = 'Aesthetics/{model_name}/'.format(model_name=model_name)
-                exp_name = 'fold_{}'.format(fold)
-                fixed = '--gpu_id 0 ' \
-                        '--exp_name {exp_name} ' \
-                        '--fold {fold} ' \
-                        '--model_name {model_name} ' \
-                        '--data_name {data_name} ' \
-                        '--batch_size 18 ' \
-                        '--lr {lr} ' \
-                        '--num_classes 5 ' \
-                        '--max_iter {max_iter} ' \
-                        '--stepvalues {steps} ' \
-                        '--sub_iter {sub_iter} ' \
-                        '--warmup_steps 1000 ' \
-                        '--weights {weights} ' \
-                        '--val_freq 40 ' \
-                        '--save_folder /data2/chengyi/Ordinal_GAN/result/save_model/checkpoint_{ckpt_name}/ ' \
-                        '--save_log /data2/chengyi/Ordinal_GAN/result/save_log/logs_{ckpt_name}/'.format(steps=steps,
-                                                                                                         ckpt_name=ckpt_name,
-                                                                                                         lr=lr,
-                                                                                                         fold=fold,
-                                                                                                         weights=weights,
-                                                                                                         sub_iter=sub_iter,
-                                                                                                         max_iter=max_iter,
-                                                                                                         exp_name=exp_name,
-                                                                                                         model_name=model_name,
-                                                                                                         data_name=data_name) \
-                    .split()
-                args = cfg.initialize(fixed, show=True)
-                main(args)
+            model_name = 'cigpvt'
+            steps = 2000
+            sub_iter = 1000
+            max_iter = 5000
+            ckpt_name = 'Aesthetics/{model_name}/'.format(model_name=model_name)
+            exp_name = 'fold_{}'.format(fold)
+            fixed = '--gpu_id 0 ' \
+                    '--exp_name {exp_name} ' \
+                    '--fold {fold} ' \
+                    '--model_name aesthetics ' \
+                    '--data_name {data_name} ' \
+                    '--num_classes 5 ' \
+                    '--max_iter {max_iter} ' \
+                    '--stepvalues {steps} ' \
+                    '--sub_iter {sub_iter} ' \
+                    '--save_folder /<your path>/{ckpt_name}/ ' \
+                    '--save_log /<your path>/{ckpt_name}/'.format(steps=steps,
+                                                                ckpt_name=ckpt_name,
+                                                                fold=fold,
+                                                                sub_iter=sub_iter,
+                                                                max_iter=max_iter,
+                                                                exp_name=exp_name,
+                                                                model_name=model_name,
+                                                                data_name=data_name) \
+                .split()
+            args = cfg.initialize(fixed, show=True)
+            main(args)
 
 
 
