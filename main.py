@@ -1,8 +1,7 @@
 import torch
 import torchvision.transforms as transforms
 from config.cfg import BaseConfig
-from training.trainer_ende import DefaultTrainer
-from training.trainer_ende_poe import DefaultTrainer as DefaultTrainer_POE
+from training.trainer import DefaultTrainer
 import os
 from utils import data_load
 import numpy as np
@@ -55,10 +54,7 @@ def main(args):
 
     val_load = torch.utils.data.DataLoader(val_data, batch_size=args.batch_size, shuffle=True, num_workers=4)
 
-    if args.poe:
-        trainer = DefaultTrainer_POE(args)
-    else:
-        trainer = DefaultTrainer(args)
+    trainer = DefaultTrainer(args)
     trainer.train(train_load, val_load)
 
 
@@ -178,13 +174,6 @@ if __name__ == '__main__':
                 args = cfg.initialize(fixed, show=True)
                 main(args)
 
-
-'''
-cd /data2/chengyi/Ordinal_GAN/
-source activate torch18
-python main_ende.py
-
-'''
 
 
 

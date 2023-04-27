@@ -29,93 +29,119 @@ class DefaultTrainer(object):
         self.lr = self.lr_current = args.lr
         self.start_iter = args.start_iter
         self.max_iter = args.max_iter
+        self.sub_iter = args.max_iter//2 if args.sub_iter == -1 else args.sub_iter
         self.warmup_steps = args.warmup_steps
         self.eval_only = args.eval_only
-        # self.model = models.POE_GAN.GAN()
-        self.model = models.vgg2_bn(pretrained=True)
+        self.main_loss_type = args.main_loss_type
+
+        self.poe = args.poe
+        self.gan = args.no_GAN
+        self.model = getattr(models, args.model_name.lower())(args)
+
+        # root = '/data2/chengyi/Ordinal_GAN/result/save_model/checkpoint_ENDE/Faces/REMAKE/'
+        # for each in os.listdir(root +'fold_{}'.format(args.fold)):
+        #     if 'acc' in each:
+        #         state_dict = root +'fold_{}/'.format(args.fold) + each
+        #         break
+
+        # state_dict = torch.load(state_dict)['net_state_dict']
+        # self.model.load_state_dict(state_dict)
+
         self.model.cuda()
-        self.loss = nn.CrossEntropyLoss()
         self.max_acc = 0
         self.min_loss = 1000
         self.min_mae = 1000
+        self.min_mae2 = 1000
         self.loss_name = args.loss_name
         self.start = 0
         self.wrong = None
+        self.log_path = os.path.join(self.args.save_folder, self.args.exp_name, 'result.txt')
 
         # 这个只是用于vgg2的
-        # print('LR = 0.0001')
-        # params = []
-        # for keys, param_value in self.model.gan.named_parameters():
-        #     params += [{'params': [param_value], 'lr': 0.0001}]
-        # self.optim_gan = torch.optim.Adam(params, lr=self.lr,
-        #                               betas=(0.9, 0.999), eps=1e-08)
+        print('LR = 0.0001')
+
+        params_pre = []
+        params_gen = []
+        for keys, param_value in self.model.net.named_parameters():
+            # print(keys)
+            if keys[0] == 'd':
+                params_pre += [{'params': [param_value], 'lr': self.lr}]
+            elif keys[0] == 'u':
+                params_gen += [{'params': [param_value], 'lr': self.lr * 50}]
+            else:
+                raise KeyError
+
+        self.optim_pred = torch.optim.Adam(params_pre, lr=self.lr,
+                                           betas=(0.9, 0.999), eps=1e-08)
+        # self.optim_pred = torch.optim.SGD(params_pre, lr=self.lr * 10)
+        # self.optim_gen = torch.optim.SGD(params_gen, lr=self.lr * 500)
         #
-        # params = []
-        # for keys, param_value in self.model.pred.named_parameters():
-        #     params += [{'params': [param_value], 'lr': 0.0001}]
-        # self.optim_pred = torch.optim.Adam(params, lr=self.lr,
-        #                               betas=(0.9, 0.999), eps=1e-08)
-        params = []
-        for keys, param_value in self.model.named_parameters():
-            params += [{'params': [param_value], 'lr': 0.0001}]
-        self.optim_pred = torch.optim.Adam(params, lr=self.lr,
-                                      betas=(0.9, 0.999), eps=1e-08)
-        #
-        # if args.resume:
-        #     if os.path.isfile(self.args.resume):
-        #         iter, index = self.load_model(args.resume)
-        #         self.start_iter = iter
+        self.optim_gen = torch.optim.Adam(params_gen, lr=self.lr * 50,
+                                          betas=(0.9, 0.999), eps=1e-08)
 
     def train_iter(self, step, dataloader):
 
-        # img, img2, label, label2 = dataloader.next()
-        # img, img2 = img.float().cuda(), img2.float().cuda()
-        # label, label2 = label.cuda(), label2.cuda()
+        img, img2, label, label2, mh, mh2 = dataloader.next()
+        img, img2 = img.float().cuda(), img2.float().cuda()
+        label, label2 = label.cuda(), label2.cuda()
 
-        img, label = dataloader.next()
-        img = img.float().cuda()
-        label = label.cuda()
-
+        if self.main_loss_type != 'rank':
+            mh = mh2 = None
         self.model.train()
         if self.eval_only:
             self.model.eval()
 
-        # pred, loss = self.model(img, img2, label, label2)
-        pred, loss = self.model(img, label)
-        # loss = self.loss(pred, label)
-
-        '''generate logger'''
         if self.start == 0:
             self.init_writer()
             self.start = 1
 
-        # print('Training - Step: {} - Loss: {:.4f}' \
-        #       .format(step, loss[0].item()))
-        print('Training - Step: {} - Loss: {:.4f}' \
-              .format(step, loss.item()))
+        if step > self.sub_iter or self.args.cls_only:
+            # only cls
+            logit, loss = self.model(img, img2, label, label2)
 
-        # loss[0].backward(retain_graph=True)
-        # self.optim_pred.step()
-        # loss[1].backward()
-        # self.optim_gan.step()
-        # self.model.zero_grad()
+            print('Only Pred Training - Step: {} - Loss: {:.4f}' \
+                  .format(step, loss.item()))
 
-        loss.backward()
-        self.optim_pred.step()
+            loss.backward()
+            self.optim_pred.step()
+            loss_print = loss
+        # elif step < 0:
+        #     # only gan
+        #     logit, loss = self.model(img, img2, label, label2, GAN=True)
+        #     print('Only Generator Training - Step: {} - Loss: {:.4f}' \
+        #           .format(step, loss[0].item()))
+        #     # loss_pred, loss_gen
+        #     # loss[0].backward(retain_graph=True)
+        #     loss[1].backward()
+        #     # self.optim_pred.step()
+        #     self.optim_gen.step()
+        #     loss_print = loss[1]
+        else:
+            # both
+            logit, loss = self.model(img, img2, label, label2, GAN=True)
+            print('Both Training - Step: {} - Loss: {:.4f}' \
+                  .format(step, loss[0].item()))
+
+            loss[0].backward(retain_graph=True)
+            loss[1].backward()
+            self.optim_pred.step()
+            self.optim_gen.step()
+            loss_print = loss[0]
+
         self.model.zero_grad()
 
-
         if step % self.args.display_freq == 0:
-            acc, mae = metric.cal_mae_acc_cls(pred, label)
-
+            print(self.model.model_name())
+            if 'poe' in self.model.model_name():
+                acc, mae = metric.cal_mae_acc_cls(logit, label)
+            else:
+                acc = metric.accuracy(logit, label)
+                mae = metric.MAE(logit, label)
             print(
                 'Training - Step: {} - Acc: {:.4f} - MAE {:.4f} - lr:{:.4f}' \
                     .format(step, acc, mae, self.lr_current))
-
-            # scalars = [loss[0].item(), loss[1].item(), acc, mae, self.lr_current]
-            # names = ['loss_pred', 'loss_gen', 'acc', 'MAE', 'lr']
-            scalars = [loss.item(), acc, mae, self.lr_current]
-            names = ['loss', 'acc', 'MAE', 'lr']
+            scalars = [loss_print.item(), acc, mae, self.lr_current]
+            names = ['loss_pred', 'acc', 'MAE', 'lr']
             write_scalars(self.writer, scalars, names, step, 'train')
 
     def train(self, train_dataloader, valid_dataloader=None):
@@ -137,11 +163,14 @@ class DefaultTrainer(object):
             if (valid_dataloader is not None) and (
                     step % self.args.val_freq == 0 or step == self.args.max_iter - 1) and (step != 0):
                 val_iter = iter(valid_dataloader)
-                val_loss, val_acc, val_mae = self.validation(step, val_iter, val_epoch_size)
+                val_loss, val_acc, val_mae, val_mae2 = self.validation(step, val_iter, val_epoch_size)
                 if val_acc > self.max_acc:
                     self.delete_model(best='best_acc', index=self.max_acc)
                     self.max_acc = val_acc
                     self.save_model(step, best='best_acc', index=self.max_acc, gpus=1)
+                    self.log = open(self.log_path, mode='a')
+                    self.log.write('step = {}, best_ACC, [acc, mae] = {}\n'.format(step, [val_acc, val_mae]))
+                    self.log.close()
 
                 if val_loss.item() < self.min_loss:
                     self.delete_model(best='min_loss', index=self.min_loss)
@@ -152,6 +181,10 @@ class DefaultTrainer(object):
                     self.delete_model(best='min_mae', index=self.min_mae)
                     self.min_mae = val_mae.item()
                     self.save_model(step, best='min_mae', index=self.min_mae, gpus=1)
+                    self.log = open(self.log_path, mode='a')
+                    self.log.write('step = {}, best_MAE, [acc, mae] = {}\n'.format(step, [val_acc, val_mae]))
+                    self.log.close()
+
 
         return self.min_loss, self.max_acc, self.min_mae
         # if step % self.args.save_freq == 0 and step != 0:
@@ -162,40 +195,39 @@ class DefaultTrainer(object):
         print('============Begin Validation============:step:{}'.format(step))
 
         self.model.eval()
-
+        loss = 0.
         total_score = []
         total_target = []
         with torch.no_grad():
             for i in range(val_epoch_size):
 
-                # img, img2, target, target2 = next(val_iter)
-                # img, img2 = img.float().cuda(), img2.float().cuda()
-                # target, target2 = target.cuda(), target2.cuda()
-                img, target = next(val_iter)
-                img = img.float().cuda()
-                target = target.cuda()
+                img, img2, target, target2, mh, mh2 = next(val_iter)
+                img, img2 = img.float().cuda(), img2.float().cuda()
+                target, target2 = target.cuda(), target2.cuda()
+                if self.main_loss_type != 'rank':
+                    mh = mh2 = None
 
-                # score, loss = self.model(img, img2, target, target2)
-                score, loss = self.model(img, target)
+                logit, loss_tmp = self.model(img, img2, target, target2)
+
+                loss += loss_tmp
 
                 if i == 0:
-                    total_score = score
+                    total_logit = logit
                     total_target = target
                 else:
-                    if len(score.shape) == 1:
-                        score = score.unsqueeze(0)
-                    if self.loss_name == 'POE':
-                        total_score = torch.cat((total_score, score), 1)
+                    if 'poe' in self.args.model_name:
+                        total_logit = torch.cat([total_logit, logit], dim=1)
                     else:
-                        total_score = torch.cat((total_score, score), 0)
-                    total_target = torch.cat((total_target, target), 0)
+                        total_logit = torch.cat([total_logit, logit], dim=0)
+                    total_target = torch.cat([total_target, target], 0)
 
-        # loss = self.loss(total_score, total_target)
-        if self.loss_name == 'POE':
-            acc, mae = metric.cal_mae_acc_cls(total_score, total_target)
+        if 'poe' in self.args.model_name:
+            acc, mae = metric.cal_mae_acc_cls(total_logit, total_target)
+            mae2 = 1
         else:
-            acc = metric.accuracy(total_score, total_target)
-            mae = metric.MAE(total_score, total_target)
+            acc = metric.accuracy(total_logit, total_target)
+            mae = metric.MAE(total_logit, total_target)
+            mae2 = metric.Arg_MAE(total_logit, total_target)
 
         '''
         记录做错的img
@@ -209,15 +241,14 @@ class DefaultTrainer(object):
         #     self.wrong = wrong
 
         print(
-            'Valid - Step: {} \n Loss: {:.4f} \n Acc: {:.4f} \n MAE: {:.4f}' \
-                .format(step, loss.item(), acc, mae))
+            'Valid - Step: {} \n Loss: {:.4f} \n Acc: {:.4f} \n MAE: {:.4f} \n MAE2: {:.4f}' \
+                .format(step, loss.item(), acc, mae, mae2))
 
-        scalars = [loss.item(), acc, mae]
-        names = ['loss', 'acc', 'MAE']
+        scalars = [loss.item(), acc, mae, mae2]
+        names = ['loss', 'acc', 'MAE', 'MAE2']
         write_scalars(self.writer, scalars, names, step, 'val')
 
-        return loss, acc, mae
-
+        return loss, acc, mae, mae2
 
     def _adjust_learning_rate_iter(self, step):
         """Sets the learning rate to the initial LR decayed by 10 at every specified step
@@ -233,8 +264,6 @@ class DefaultTrainer(object):
         elif self.args.lr_adjust == 'poly':
             self.lr_current = self.args.lr * (1 - step / self.args.max_iter) ** 0.9
 
-        # for param_group in self.optim_gan.param_groups:
-        #     param_group['lr'] = self.lr_current
         for param_group in self.optim_pred.param_groups:
             param_group['lr'] = self.lr_current
 
@@ -249,7 +278,8 @@ class DefaultTrainer(object):
             log_path = os.path.join(self.args.save_log, self.args.exp_name)
         else:
             log_path = os.path.join(self.args.save_log,
-                                    datetime.now().strftime('%b%d_%H-%M-%S') + '_' + self.args.optim + '_' + self.args.exp_name)
+                                    datetime.now().strftime(
+                                        '%b%d_%H-%M-%S') + '_' + self.args.exp_name)
         log_config_path = os.path.join(log_path, 'configs.log')
 
         self.writer = SummaryWriter(log_path)

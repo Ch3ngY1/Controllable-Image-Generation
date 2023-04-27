@@ -18,10 +18,7 @@ class BaseConfig(object):
         self.parser.add_argument('--save_log', default='/data2/chengyi/ord_reg/result/save_log/logs_catar/',help='Path to save checkpoint models')
         self.parser.add_argument('--resume', default=None, type=str, help='Path to target resume checkpoint')
         self.parser.add_argument('--pretrained', default=None, type=str, help='Path to target pretrained checkpoint')
-        self.parser.add_argument('--img_root', default='/data2/wangjinhong/data/ord_reg/data/aligned/', type=str, help='Image root')
-        self.parser.add_argument('--data_root', default='/data2/wangjinhong/data/ord_reg/data/')
         self.parser.add_argument('--data_name', default='adience')
-        self.parser.add_argument('--eval_only', action='store_true', help='use eval mode')
         self.parser.add_argument('--debug', action='store_true', help='use eval mode')
         self.parser.add_argument('--fold', default=4, type=int, help='use k fold validation')
 
@@ -51,19 +48,12 @@ class BaseConfig(object):
 
         #model cfg
         self.parser.add_argument('--model_name', default='Resnet', type=str, help='module')
-        self.parser.add_argument('--main_loss_type', default='cls', choices=['cls', 'rank', 'reg'], type=str)
-        self.parser.add_argument('--poe', action='store_true')
-        self.parser.add_argument('--no_GAN', action='store_false')
         self.parser.add_argument('--ratio', default=0.5, type=float)
         # self.parser.add_argument('--weight', default=1., type=float)
 
 
         self.parser.add_argument('--mix_mode', default=None, type=str)
-        self.parser.add_argument('--gt_mode', default='single', type=str,
-                                 choices=['weighted', 'single', 'eval', 'binary'], help='only in ResTrans2')
         self.parser.add_argument('--loss_name', default='CELoss', type=str)
-        self.parser.add_argument('--input_mode', default='single', type=str,
-                                 choices=['single', 'scales'], help='only in ResTrans2')
         self.parser.add_argument('--resnet_layers', default=50, type=int, choices=[18, 34, 50, 101], help='Number of Resnet layers')
         # DDP cfg
         self.parser.add_argument("--local_rank", default=0, type=int)
