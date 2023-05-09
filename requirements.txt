@@ -1,0 +1,6 @@
+numpy
+tensorboardX
+sklearn
+pillow
+pandas
+csv
