@@ -3,8 +3,6 @@ import torch.utils.data as data_utils
 import numpy as np
 import os
 from PIL import Image, ImageDraw
-import cv2
-from xpinyin import Pinyin
 from PIL import Image
 import copy
 import pandas as pd

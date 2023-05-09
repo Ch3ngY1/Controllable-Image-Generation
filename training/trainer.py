@@ -1,5 +1,4 @@
 import os, sys
-import cv2
 import torch
 import torch.nn as nn
 import numpy as np
