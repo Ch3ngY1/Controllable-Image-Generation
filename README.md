@@ -8,6 +8,10 @@ conda install pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 pytorch-cud
 pip install -r requirements.txt
 ```
 
+## Train
+1. change dataset name in main.py
+2. `python main.py`
+
 ## Reference
 Robust Image Ordinal Regression with Controllable Image Generation: <https://arxiv.org/abs/2305.04213>
 ```
